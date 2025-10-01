@@ -124,6 +124,19 @@ while running:
     carousel_h = int(H * 0.18)
     main_h = H - (carousel_h + control_h)
 
+    # --- CAROUSEL ---
+    thumb_w, thumb_h = scaled_thumbs[0].get_size()
+    spacing = int(thumb_w * 0.2)
+    y = main_h + int(carousel_h * 0.15)
+    start_x = int(W * 0.05)
+
+    thumb_rects = []  ### ADDED
+
+    # --- ARROWS ---
+    arrow_size = thumb_h // 2  ### ADDED
+    left_arrow = pygame.Rect(10, y + thumb_h//2 - arrow_size//2, arrow_size, arrow_size)   ### ADDED
+    right_arrow = pygame.Rect(W - arrow_size - 10, y + thumb_h//2 - arrow_size//2, arrow_size, arrow_size)   ### ADDED
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -165,12 +178,7 @@ while running:
     screen.blit(main_img, rect)
 
     # --- CAROUSEL ---
-    thumb_w, thumb_h = scaled_thumbs[0].get_size()
-    spacing = int(thumb_w * 0.2)
-    y = main_h + int(carousel_h * 0.15)
-    start_x = int(W * 0.05)
 
-    thumb_rects = []  ### ADDED
 
     for i, thumb in enumerate(scaled_thumbs):
         x = start_x + (i - carousel_offset) * (thumb_w + spacing)
@@ -180,10 +188,7 @@ while running:
         if i == current_idx:
             pygame.draw.rect(screen, (0, 200, 200), rect, 3)
 
-    # --- ARROWS ---
-    arrow_size = thumb_h // 2  ### ADDED
-    left_arrow = pygame.Rect(10, y + thumb_h//2 - arrow_size//2, arrow_size, arrow_size)   ### ADDED
-    right_arrow = pygame.Rect(W - arrow_size - 10, y + thumb_h//2 - arrow_size//2, arrow_size, arrow_size)   ### ADDED
+    # --- DRAW ARROWS ---
 
     pygame.draw.polygon(screen, (255, 255, 255),
                         [(left_arrow.right, left_arrow.top),

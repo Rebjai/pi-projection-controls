@@ -14,8 +14,10 @@ SCREEN_W, SCREEN_H = 1000, 700
 BG_COLOR = (30, 30, 30)
 SLIDE_INTERVAL = 2.0
 
-screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), pygame.RESIZABLE)
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.RESIZABLE)
+SCREEN_W, SCREEN_H = screen.get_size()
 pygame.display.set_caption("Dynamic Photo Gallery")
+pygame.mouse.set_visible(False)
 
 font = pygame.font.SysFont("Arial", 20)
 
@@ -110,9 +112,6 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.VIDEORESIZE:
-            screen = pygame.display.set_mode(event.size, pygame.RESIZABLE)
-            scaled_main, scaled_thumbs = build_scaled_cache(event.w, event.h)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
             if btn_prev.is_clicked(pos):

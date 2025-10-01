@@ -3,6 +3,7 @@ import requests
 import io
 import sys
 import time
+import threading
 
 pygame.init()
 
@@ -12,7 +13,7 @@ UPLOADS_ENDPOINT = f"{SERVER_URL}/uploads"
 UPLOADS_BASE_URL = f"{SERVER_URL}/uploads/"
 SCREEN_W, SCREEN_H = 1000, 700
 BG_COLOR = (30, 30, 30)
-SLIDE_INTERVAL = 2.0
+SLIDE_INTERVAL = 5.0
 
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.RESIZABLE)
 SCREEN_W, SCREEN_H = screen.get_size()
@@ -54,6 +55,20 @@ current_idx = 0
 last_switch = time.time()
 presentation_mode = False
 carousel_offset = 0
+
+
+# server actions
+
+def show_image_on_server(image_name):
+    """Send POST request to server to show the selected image."""
+    def _send():
+        try:
+            url = f"{SERVER_URL}/manual_show/{image_name}"
+            requests.post(url, timeout=5)
+        except Exception as e:
+            print("❌ Failed to send manual_show request:", e)
+    threading.Thread(target=_send, daemon=True).start()
+
 
 # --- BUTTONS ---
 class Button:
@@ -116,8 +131,10 @@ while running:
             pos = event.pos
             if btn_prev.is_clicked(pos):
                 current_idx = (current_idx - 1) % len(images)
+                show_image_on_server(fetch_image_list()[current_idx])
             elif btn_next.is_clicked(pos):
                 current_idx = (current_idx + 1) % len(images)
+                show_image_on_server(fetch_image_list()[current_idx])
             elif btn_start.is_clicked(pos):
                 presentation_mode = True
                 last_switch = time.time()
@@ -133,11 +150,13 @@ while running:
                 for i, rect in enumerate(thumb_rects):   ### ADDED
                     if rect.collidepoint(pos):
                         current_idx = i
+                        show_image_on_server(fetch_image_list()[current_idx])
                         break
 
     # slideshow auto-advance
     if presentation_mode and time.time() - last_switch >= SLIDE_INTERVAL:
         current_idx = (current_idx + 1) % len(images)
+        show_image_on_server(fetch_image_list()[current_idx])
         last_switch = time.time()
 
     # --- MAIN IMAGE ---

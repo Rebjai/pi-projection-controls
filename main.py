@@ -32,14 +32,16 @@ def fetch_image_list():
         print("❌ Failed to fetch list:", e)
         return []
 
+image_list = fetch_image_list()
+
 def load_images_from_server():
     imgs = []
-    for fname in fetch_image_list():
+    for fname in image_list:
         url = UPLOADS_BASE_URL + fname
         try:
             r = requests.get(url, timeout=10)
             r.raise_for_status()
-            img = pygame.image.load(io.BytesIO(r.content)).convert_alpha()
+            img = pygame.image.load(io.BytesIO(r.content)).convert()  # sin alpha para menos RAM
             imgs.append(img)
         except Exception as e:
             print(f"❌ Failed to load {url}: {e}")
@@ -56,19 +58,17 @@ last_switch = time.time()
 presentation_mode = False
 carousel_offset = 0
 
-
 # server actions
-
 def show_image_on_server(image_name):
     """Send POST request to server to show the selected image."""
     def _send():
         try:
+            print(f"➡️ Showing image on server: {image_name}")
             url = f"{SERVER_URL}/manual_show/{image_name}"
             requests.post(url, timeout=5)
         except Exception as e:
             print("❌ Failed to send manual_show request:", e)
     threading.Thread(target=_send, daemon=True).start()
-
 
 # --- BUTTONS ---
 class Button:
@@ -99,20 +99,21 @@ def scale_to_fit(img, max_w, max_h):
     ratio = min(max_w / w, max_h / h)
     return pygame.transform.smoothscale(img, (int(w * ratio), int(h * ratio)))
 
-def build_scaled_cache(W, H):
-    """Cache scaled images for main display and thumbnails."""
+def get_scaled_main(idx, W, H):
+    """Escala solo la imagen actual al área principal."""
     control_h = int(H * 0.12)
     carousel_h = int(H * 0.18)
     main_h = H - (carousel_h + control_h)
+    return scale_to_fit(images[idx], W * 0.9, main_h * 0.9)
 
+def get_scaled_thumbs(W, H):
+    """Escala thumbnails de todas las imágenes (solo una vez por tamaño de ventana)."""
+    carousel_h = int(H * 0.18)
     thumb_h = int(carousel_h * 0.7)
     thumb_w = int(thumb_h * 4/3)
+    return [scale_to_fit(img, thumb_w, thumb_h) for img in images]
 
-    scaled_main = [scale_to_fit(img, W * 0.9, main_h * 0.9) for img in images]
-    scaled_thumbs = [scale_to_fit(img, thumb_w, thumb_h) for img in images]
-    return scaled_main, scaled_thumbs
-
-scaled_main, scaled_thumbs = build_scaled_cache(SCREEN_W, SCREEN_H)
+scaled_thumbs = get_scaled_thumbs(SCREEN_W, SCREEN_H)
 
 # --- MAIN LOOP ---
 running = True
@@ -130,12 +131,22 @@ while running:
     y = main_h + int(carousel_h * 0.15)
     start_x = int(W * 0.05)
 
-    thumb_rects = []  ### ADDED
+    thumb_rects = []
+
+
+    # --- CAROUSEL ---
+    for i, thumb in enumerate(scaled_thumbs):
+        x = start_x + (i - carousel_offset) * (thumb_w + spacing)
+        rect = pygame.Rect(x, y, thumb_w, thumb_h)
+        screen.blit(thumb, rect)
+        thumb_rects.append(rect)
+        if i == current_idx:
+            pygame.draw.rect(screen, (0, 200, 200), rect, 3)
 
     # --- ARROWS ---
-    arrow_size = thumb_h // 2  ### ADDED
-    left_arrow = pygame.Rect(10, y + thumb_h//2 - arrow_size//2, arrow_size, arrow_size)   ### ADDED
-    right_arrow = pygame.Rect(W - arrow_size - 10, y + thumb_h//2 - arrow_size//2, arrow_size, arrow_size)   ### ADDED
+    arrow_size = thumb_h // 2
+    left_arrow = pygame.Rect(10, y + thumb_h//2 - arrow_size//2, arrow_size, arrow_size)
+    right_arrow = pygame.Rect(W - arrow_size - 10, y + thumb_h//2 - arrow_size//2, arrow_size, arrow_size)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -144,60 +155,48 @@ while running:
             pos = event.pos
             if btn_prev.is_clicked(pos):
                 current_idx = (current_idx - 1) % len(images)
-                show_image_on_server(fetch_image_list()[current_idx])
+                show_image_on_server(image_list[current_idx])
             elif btn_next.is_clicked(pos):
                 current_idx = (current_idx + 1) % len(images)
-                show_image_on_server(fetch_image_list()[current_idx])
+                show_image_on_server(image_list[current_idx])
             elif btn_start.is_clicked(pos):
                 presentation_mode = True
                 last_switch = time.time()
             elif btn_stop.is_clicked(pos):
                 presentation_mode = False
-
-            # --- CAROUSEL INTERACTIONS ---
-            elif left_arrow.collidepoint(pos):   ### ADDED
+            elif left_arrow.collidepoint(pos):
                 carousel_offset = max(carousel_offset - 1, 0)
-            elif right_arrow.collidepoint(pos):  ### ADDED
+            elif right_arrow.collidepoint(pos):
                 carousel_offset = min(carousel_offset + 1, len(images) - 1)
             else:
-                for i, rect in enumerate(thumb_rects):   ### ADDED
+                for i, rect in enumerate(thumb_rects):
                     if rect.collidepoint(pos):
+                        print(f"➡️ Thumbnail clicked: {image_list[i]}")
                         current_idx = i
-                        show_image_on_server(fetch_image_list()[current_idx])
+                        show_image_on_server(image_list[current_idx])
                         break
 
     # slideshow auto-advance
     if presentation_mode and time.time() - last_switch >= SLIDE_INTERVAL:
         current_idx = (current_idx + 1) % len(images)
-        show_image_on_server(fetch_image_list()[current_idx])
+        show_image_on_server(image_list[current_idx])
         last_switch = time.time()
 
     # --- MAIN IMAGE ---
-    main_img = scaled_main[current_idx]
+    main_img = get_scaled_main(current_idx, W, H)
     rect = main_img.get_rect(center=(W // 2, main_h // 2))
     screen.blit(main_img, rect)
 
-    # --- CAROUSEL ---
-
-
-    for i, thumb in enumerate(scaled_thumbs):
-        x = start_x + (i - carousel_offset) * (thumb_w + spacing)
-        rect = pygame.Rect(x, y, thumb_w, thumb_h)
-        screen.blit(thumb, rect)
-        thumb_rects.append(rect)  ### ADDED
-        if i == current_idx:
-            pygame.draw.rect(screen, (0, 200, 200), rect, 3)
 
     # --- DRAW ARROWS ---
-
     pygame.draw.polygon(screen, (255, 255, 255),
                         [(left_arrow.right, left_arrow.top),
                          (left_arrow.right, left_arrow.bottom),
-                         (left_arrow.left, left_arrow.centery)])   ### ADDED
+                         (left_arrow.left, left_arrow.centery)])
     pygame.draw.polygon(screen, (255, 255, 255),
                         [(right_arrow.left, right_arrow.top),
                          (right_arrow.left, right_arrow.bottom),
-                         (right_arrow.right, right_arrow.centery)])   ### ADDED
+                         (right_arrow.right, right_arrow.centery)])
 
     # --- CONTROLS ---
     btn_area_y = H - control_h + 10

@@ -22,17 +22,50 @@ pygame.mouse.set_visible(False)
 
 font = pygame.font.SysFont("Arial", 20)
 
+# --- HELPERS ---
+def scale_to_fit(img, max_w, max_h):
+    w, h = img.get_size()
+    ratio = min(max_w / w, max_h / h)
+    return pygame.transform.smoothscale(img, (int(w * ratio), int(h * ratio)))
+
+def get_scaled_main(idx, W, H):
+    """Escala solo la imagen actual al área principal."""
+    control_h = int(H * 0.12)
+    carousel_h = int(H * 0.18)
+    main_h = H - (carousel_h + control_h)
+    return scale_to_fit(images[idx], W * 0.9, main_h * 0.9)
+
+def get_scaled_thumbs(W, H):
+    """Escala thumbnails de todas las imágenes (solo una vez por tamaño de ventana)."""
+    carousel_h = int(H * 0.18)
+    thumb_h = int(carousel_h * 0.7)
+    thumb_w = int(thumb_h * 4/3)
+    return [scale_to_fit(img, thumb_w, thumb_h) for img in images]
+
 # --- LOAD IMAGES ---
 def fetch_image_list():
     try:
         r = requests.get(UPLOADS_ENDPOINT, timeout=10)
         r.raise_for_status()
-        return r.json().get("uploads", [])
+        uploads = r.json().get("uploads", [])
+        # filtrar solo extensiones soportadas
+        return [f for f in uploads if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp"))]
     except Exception as e:
         print("❌ Failed to fetch list:", e)
         return []
 
 image_list = fetch_image_list()
+
+def load_and_scale_image(url, max_w, max_h):
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        img = pygame.image.load(io.BytesIO(r.content)).convert()
+        img = scale_to_fit(img, max_w, max_h)
+        return img
+    except Exception as e:
+        print(f"❌ Failed to load {url}: {e}")
+        return None
 
 def load_images_from_server():
     imgs = []
@@ -41,7 +74,7 @@ def load_images_from_server():
         try:
             r = requests.get(url, timeout=10)
             r.raise_for_status()
-            img = pygame.image.load(io.BytesIO(r.content)).convert()  # sin alpha para menos RAM
+            img = load_and_scale_image(url, SCREEN_W * 0.9, SCREEN_H * 0.7)
             imgs.append(img)
         except Exception as e:
             print(f"❌ Failed to load {url}: {e}")
@@ -93,25 +126,6 @@ btn_start = Button("Start ▶")
 btn_stop = Button("■ Stop")
 buttons = [btn_prev, btn_next, btn_start, btn_stop]
 
-# --- HELPERS ---
-def scale_to_fit(img, max_w, max_h):
-    w, h = img.get_size()
-    ratio = min(max_w / w, max_h / h)
-    return pygame.transform.smoothscale(img, (int(w * ratio), int(h * ratio)))
-
-def get_scaled_main(idx, W, H):
-    """Escala solo la imagen actual al área principal."""
-    control_h = int(H * 0.12)
-    carousel_h = int(H * 0.18)
-    main_h = H - (carousel_h + control_h)
-    return scale_to_fit(images[idx], W * 0.9, main_h * 0.9)
-
-def get_scaled_thumbs(W, H):
-    """Escala thumbnails de todas las imágenes (solo una vez por tamaño de ventana)."""
-    carousel_h = int(H * 0.18)
-    thumb_h = int(carousel_h * 0.7)
-    thumb_w = int(thumb_h * 4/3)
-    return [scale_to_fit(img, thumb_w, thumb_h) for img in images]
 
 scaled_thumbs = get_scaled_thumbs(SCREEN_W, SCREEN_H)
 

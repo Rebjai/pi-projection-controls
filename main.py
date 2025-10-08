@@ -235,16 +235,28 @@ while running:
     rect = main_img.get_rect(center=(W // 2, main_h // 2))
     screen.blit(main_img, rect)
 
+    # Arrow colors
+    arrow_fill = (255, 255, 255)    # dark fill
+    arrow_border =  (50, 50, 50) # white border
+    border_width = 3
 
-    # --- DRAW ARROWS ---
-    pygame.draw.polygon(screen, (255, 255, 255),
-                        [(left_arrow.right, left_arrow.top),
-                         (left_arrow.right, left_arrow.bottom),
-                         (left_arrow.left, left_arrow.centery)])
-    pygame.draw.polygon(screen, (255, 255, 255),
-                        [(right_arrow.left, right_arrow.top),
-                         (right_arrow.left, right_arrow.bottom),
-                         (right_arrow.right, right_arrow.centery)])
+    # --- LEFT ARROW ---
+    left_points = [
+        (left_arrow.right, left_arrow.top),
+        (left_arrow.right, left_arrow.bottom),
+        (left_arrow.left, left_arrow.centery)
+    ]
+    pygame.draw.polygon(screen, arrow_fill, left_points)               # fill
+    pygame.draw.polygon(screen, arrow_border, left_points, border_width)  # border
+
+    # --- RIGHT ARROW ---
+    right_points = [
+        (right_arrow.left, right_arrow.top),
+        (right_arrow.left, right_arrow.bottom),
+        (right_arrow.right, right_arrow.centery)
+    ]
+    pygame.draw.polygon(screen, arrow_fill, right_points)               
+    pygame.draw.polygon(screen, arrow_border, right_points, border_width)  
 
     # --- CONTROLS ---
     btn_area_y = H - control_h + 10

@@ -91,6 +91,12 @@ last_switch = time.time()
 presentation_mode = False
 carousel_offset = 0
 
+is_dragging = False
+drag_start_x = 0
+carousel_drag_offset = 0
+
+
+
 # server actions
 def show_image_on_server(image_name):
     """Send POST request to server to show the selected image."""
@@ -167,6 +173,14 @@ while running:
             running = False
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
+            if y <= pos[1] <= y + thumb_h:  # inside carousel area
+                is_dragging = True
+                drag_start_x = pos[0]
+                carousel_drag_offset = 0
+            else:
+                is_dragging = False
+
+            # Buttons and click logic (same as before)
             if btn_prev.is_clicked(pos):
                 current_idx = (current_idx - 1) % len(images)
                 show_image_on_server(image_list[current_idx])
@@ -189,6 +203,21 @@ while running:
                         current_idx = i
                         show_image_on_server(image_list[current_idx])
                         break
+
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if is_dragging:
+                # Snap to nearest thumbnail after releasing
+                carousel_offset = max(0, min(len(images) - 1, round(carousel_offset)))
+                is_dragging = False
+
+        elif event.type == pygame.MOUSEMOTION and is_dragging:
+            dx = event.pos[0] - drag_start_x
+            drag_start_x = event.pos[0]
+            # scroll speed factor (adjust sensitivity)
+            scroll_factor = (thumb_w + spacing) / 16000.0
+            carousel_offset -= dx * scroll_factor
+            # clamp offset
+            carousel_offset = max(0, min(len(images) - 1, carousel_offset))
 
     # slideshow auto-advance
     if presentation_mode and time.time() - last_switch >= SLIDE_INTERVAL:

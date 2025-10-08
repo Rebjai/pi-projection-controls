@@ -153,15 +153,20 @@ while running:
 
     thumb_rects = []
 
+    # Draw visible thumbnails with wrap-around copies
+    for i in range(len(images)):
+        # draw 3 copies for wrap-around (-len(images), 0, +len(images))
+        for offset_copies in (-len(images), 0, len(images)):
+            x = start_x + ((i + offset_copies) - carousel_offset) * (thumb_w + spacing)
+            rect = pygame.Rect(x, y, thumb_w, thumb_h)
+            # Only draw thumbnails that are inside the screen
+            if -thumb_w < x < W:
+                screen.blit(scaled_thumbs[i], rect)
+                if i == current_idx:
+                    pygame.draw.rect(screen, (0, 200, 200), rect, 3)
+                # Store every visible copy as a tuple (rect, index)
+                thumb_rects.append((rect, i))
 
-    # --- CAROUSEL ---
-    for i, thumb in enumerate(scaled_thumbs):
-        x = start_x + (i - carousel_offset) * (thumb_w + spacing)
-        rect = pygame.Rect(x, y, thumb_w, thumb_h)
-        screen.blit(thumb, rect)
-        thumb_rects.append(rect)
-        if i == current_idx:
-            pygame.draw.rect(screen, (0, 200, 200), rect, 3)
 
     # --- ARROWS ---
     arrow_size = thumb_h // 2
@@ -197,27 +202,27 @@ while running:
             elif right_arrow.collidepoint(pos):
                 carousel_offset = min(carousel_offset + 1, len(images) - 1)
             else:
-                for i, rect in enumerate(thumb_rects):
+                for rect, i in thumb_rects:
                     if rect.collidepoint(pos):
                         print(f"➡️ Thumbnail clicked: {image_list[i]}")
                         current_idx = i
                         show_image_on_server(image_list[current_idx])
                         break
 
+
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             if is_dragging:
                 # Snap to nearest thumbnail after releasing
-                carousel_offset = max(0, min(len(images) - 1, round(carousel_offset)))
+                carousel_offset = round(carousel_offset) % len(images)
                 is_dragging = False
 
         elif event.type == pygame.MOUSEMOTION and is_dragging:
             dx = event.pos[0] - drag_start_x
             drag_start_x = event.pos[0]
-            # scroll speed factor (adjust sensitivity)
-            scroll_factor = (thumb_w + spacing) / 16000.0
+            scroll_factor = (thumb_w + spacing) / 10000.0  # adjust sensitivity
             carousel_offset -= dx * scroll_factor
-            # clamp offset
-            carousel_offset = max(0, min(len(images) - 1, carousel_offset))
+            # wrap around
+            carousel_offset %= len(images)
 
     # slideshow auto-advance
     if presentation_mode and time.time() - last_switch >= SLIDE_INTERVAL:
